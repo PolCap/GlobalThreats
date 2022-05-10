@@ -1,4 +1,4 @@
-# Multiple threats drive the decline of global vertebrate populations
+# Interacting threats drive the decline of global vertebrate populations 
 
 Pol Capdevila<sup>1</sup>*, Louise McRae<sup>2</sup>, Valentina Marconi<sup>2</sup>, Thomas F. Johnson<sup>3</sup>, Robin Freeman<sup>2</sup>, Christopher F Clements<sup>1</sup>
 
