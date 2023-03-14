@@ -20,7 +20,7 @@ _Anthropogenic threats are reshaping Earth’s biodiversity at an unprecedented 
 
 ## Data
 
-- __`TenYearsData.RData`__: contains the population trends of 3,145 vertebrate time-series from the state-space models. 
+- __`FiveData.RData`__: contains the population trends of 2,948 vertebrate time-series from the state-space models. 
 
 ---
 
@@ -28,12 +28,17 @@ _Anthropogenic threats are reshaping Earth’s biodiversity at an unprecedented 
 
 To run the statistical analyses we used different R scripts: 
 
-- __`TenAnalyses.R`__: code to analyse the factors influencing resistance and recovery loss. These analyses require a lot of computing power.
+- __`AnalysisSSData.R`__: code to clean and prepare the state-space data.
+- __`CompareYears.R`__: code to compare the results from the models using 5, 10 and 20 data points.
+- __`Counterfactual tests.R`__: code to simulate the counterfactual scenarios, as well as to generate figures 4 and S12.
+- __`Figures.R`__: code to create the figures 1-3 and tables S1-S6 of the study. 
+- __`ModelDiagnostics.R`__: code to perform the diagnostics of the multilevel Bayesian models. 
 - __`MultiEffects.R`__: code to calculate the different proportions of the cummulative effects. 
-- __`SensiMultiEffects.R`__: code to calculate the sensitivity of the cummulative effects analyses to the null model choice. 
-- __`Counterfactual tests.R`__: code to simulate the counterfactual scenarios. 
-- __`Figures.R`__: code to create the figures 1-3 and tables S1-S4 of the study. 
-- __`SupFigures.R`__: code to create the supplementary figures. 
+- __`SensitivityInteractions.R`__: code to calculate the sensitivity of the cummulative effects analyses to the null model choice. 
+- __`State-SpaceModels.R`__: code to estimate the state-space models and their diagnostics.
+- __`StepTwoModels.R`__: code to apply multilevel Bayesian models to estimate the influence of threats, System and Taxa on population trends. These analyses require some computing power.
+- __`SupFigures.R`__: code to create the supplementary figures and tables.
+- __`TwentyAnalyses.R`__: code to replicate the multilevel analyses but with 10 and 20 data points. 
 
 ---
 
