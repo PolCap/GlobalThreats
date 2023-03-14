@@ -40,8 +40,8 @@ theme_set(theme_minimal()+
                                               margin = margin(t = 10, r = 0, b = 0, l = 0)), 
                   axis.title.y = element_text(size=12,
                                               margin = margin(t = 0, r = 10, b = 0, l = 0)),
-                  axis.line.x = element_line(color="black", size = 0.5),
-                  axis.line.y = element_line(color="black", size = 0.5),
+                  axis.line.x = element_line(color="black", linewidth = 0.5),
+                  axis.line.y = element_line(color="black", linewidth = 0.5),
                   panel.grid.major = element_blank(), 
                   panel.grid.minor = element_blank(),
                   axis.text.x = element_text(color="black", size = 12),
@@ -59,12 +59,13 @@ DataPath <-  paste0(path,"Data")
 ResultPath <-  paste0(path, "Results") 
 
 # Load data 
-load(paste0(ResultPath, "/TenResults.RData"))
-load(paste0(DataPath, "/TenYearsData.RData"))
+
+load(paste0(ResultPath, "/Results.RData"))
+load(paste0(DataPath, "/FiveData.RData"))
 
 # Change name invasive species 
 
-pops_data10 <- pops_data10 %>% 
+pops_data<- pops_data%>% 
   mutate(threats = gsub("Invasive spp/genes", "Invasive", threats),)
 
 # Load functions for the plots 
@@ -83,30 +84,34 @@ taxon_pal <- wes_palette("Cavalcanti1", n = 5)
 
 system_pal <- c("#A1D6E2","#336B87", "#CC954E")
 
-# Proportion of data declining/increasing ######################################
+# Number of time series --------------------------------------------------------
 
-pops_data10 %>% 
-  mutate(trend=ifelse(mu>0, "Increase",
-                      ifelse(mu<0, "Decrease", "Stable"))) %>%
-  group_by(trend) %>% 
-  summarise(n=n()) %>% 
-  mutate(freq = (n / sum(n))*100)
+# Number of species 
 
-pops_data10 %>% 
-  mutate(trend=ifelse(mu>0, "Increase",
-                      ifelse(mu<0, "Decrease", "Stable"))) %>%
-  group_by(n.threat, trend) %>% 
-  summarise(n=n()) %>% 
-  mutate(freq = (n / sum(n))*100)
+length(unique(pops_data$SpeciesName))
 
-pops_data10 %>% 
-  group_by(n.threat) %>% 
+# Number of population time series per taxon
+
+pops_data%>% 
+  group_by(Taxon) %>% 
   summarise(n=n())
 
-pops_data10 %>% 
-  as.data.frame() %>% 
-  distinct(SpeciesName) %>% 
+# Number of population time series per system
+
+pops_data%>% 
+  group_by(System) %>% 
   summarise(n=n())
+
+# Min, max, and mean duration 
+
+max(pop_data$Duration)
+min(pop_data$Duration)
+mean(pop_data$Duration)
+
+# Min and max years
+
+max(pop_data$Year)
+min(pop_data$Year)
 
 # Figure 1: Map ################################################################
 
@@ -116,12 +121,13 @@ world <- map_data("world")
 
 # Create map
 
-(g1a <- ggplot() +
+(g2a <- ggplot() +
     geom_map(map = world, data = world,
              aes(long, lat, map_id = region), 
              color = "gray80", fill = "gray80", size = 0.3) +
+    #coord_proj("+proj=wintri") +
     theme_map() + 
-    geom_point(data = pops_data10, 
+    geom_point(data = pops_data, 
                aes(x = Longitude, y = Latitude, 
                    fill = mu),
                alpha=0.7, shape=21, size=3) +
@@ -149,12 +155,13 @@ legend1 <- get_legend(g2a+theme(legend.position = "bottom",
                                legend.title = element_text(size = 14)))
 
 # Create distribution 1
-anot <- data.frame(x=median(pops_data10$Duration), 
+
+anot <- data.frame(x=median(pops_data$Duration), 
                    y=300, 
-                   label =paste("Median = ", median(pops_data10$Duration)))
+                   label =paste("Median = ", median(pops_data$Duration)))
 
 
-(gd1 <- pops_data10 %>% 
+(gd1 <- pops_data%>% 
     ggplot() +
     geom_histogram(aes(x = Duration),
                    binwidth = 2,
@@ -177,7 +184,7 @@ anot <- data.frame(x=median(pops_data10$Duration),
 
 # Combined map ----
 
-(g1a<- ggdraw(g1a) +
+(g2a<- ggdraw(g2a) +
    draw_plot(gd1, x = -0.32, y = -0.3143, scale = 0.35) +
    draw_plot(legend1, 
              x=0.4, y=-0.435, scale = 1)) 
@@ -186,10 +193,10 @@ anot <- data.frame(x=median(pops_data10$Duration),
 
 # Readjust the data frame to contain the threats as individual columns
 
-threat_freq_sys <- pop_data10 %>% 
+threat_freq_sys <- pop_data %>% 
   distinct(ID, .keep_all=T) %>% 
-  mutate(none=ifelse(threats.x=="None", "none", NA)) %>% 
-  select(ID, System, none, pollution, habitatl, climatechange, 
+  mutate(none=ifelse(threats=="None", "none", NA)) %>% 
+  dplyr::select(ID, System, none, pollution, habitatl, climatechange, 
          invasive, exploitation, disease) %>% 
   pivot_longer(3:9, names_to="threats") %>% 
   drop_na(value) %>% 
@@ -209,7 +216,7 @@ threat_freq_sys <- pop_data10 %>%
                                                                                        "None", threats)))))))) 
 # Plot
 
-(g1b <- threat_freq_sys %>% 
+(g2b <- threat_freq_sys %>% 
     mutate(threats=factor(threats,
                           levels=c("Habitat loss", "Exploitation", 
                                    "Climate change","Pollution", 
@@ -225,6 +232,9 @@ threat_freq_sys <- pop_data10 %>%
                        label = scales::percent,
                        expand = c(0,0))+ 
     labs(y="Proportion of threats (%)", x="",fill="") +
+    # geom_text(aes(label = paste0(round(freq*100, 0), "%")),
+    #           size=5,
+    #           position = position_stack(vjust = 0.5)) +
     theme(legend.position="bottom",
           legend.text = element_text(size=12),
           strip.text = element_text(hjust = 0),
@@ -235,7 +245,7 @@ threat_freq_sys <- pop_data10 %>%
 
 # Panel c: frequency of the different threats by taxon -------------------------
 
-pop_data10 <- pop_data10 %>% 
+pop_data <- pop_data %>% 
   mutate(Taxon= ifelse(Class=="Holocephali"|Class=="Elasmobranchii" | 
                          Class=="Myxini"|Class=="Cephalaspidomorphi"|
                          Class=="Actinopterygii"|Class=="Sarcopterygii",
@@ -248,10 +258,10 @@ pop_data10 <- pop_data10 %>%
                                             ifelse(Class=="Reptilia",
                                                    "Reptiles", "NA"))))))
 
-threat_freq_tax <- pop_data10 %>% 
+threat_freq_tax <- pop_data %>% 
   distinct(ID, .keep_all=T) %>% 
-  mutate(none=ifelse(threats.x=="None", "none", NA)) %>% 
-  select(ID, Taxon, none, pollution, habitatl, climatechange, 
+  mutate(none=ifelse(threats=="None", "none", NA)) %>% 
+  dplyr::select(ID, Taxon, none, pollution, habitatl, climatechange, 
          invasive, exploitation, disease) %>% 
   pivot_longer(3:9, names_to="threats") %>% 
   drop_na(value) %>% 
@@ -271,7 +281,7 @@ threat_freq_tax <- pop_data10 %>%
                                                                                        "None", threats)))))))) 
 # Plot it  
 
-(g1c <- threat_freq_tax %>% 
+(g2c <- threat_freq_tax %>% 
     mutate(threats=factor(threats,
                           levels=c("Habitat loss", "Exploitation", 
                                    "Climate change","Pollution", 
@@ -287,6 +297,9 @@ threat_freq_tax <- pop_data10 %>%
                        label = scales::percent,
                        expand = c(0,0))+ 
     labs(y="Proportion of threats (%)", x="",fill="") +
+    # geom_text(aes(label = paste0(round(freq*100, 0), "%")),
+    #           size=3,
+    #           position = position_stack(vjust = 0.5)) +
     theme(legend.position="none",
           legend.text = element_text(size=12),
           strip.text = element_text(hjust = 0),
@@ -297,13 +310,13 @@ threat_freq_tax <- pop_data10 %>%
 
 # Left plot
 
-(left_panel <- plot_grid(g1b+theme(legend.position = "none"),
-                         g1c, 
+(left_panel <- plot_grid(g2b+theme(legend.position = "none"),
+                         g2c, 
                          labels = c("b", "c"), nrow = 2))
 
 # Add legend
 
-legend2 <- get_legend(g1b)
+legend2 <- get_legend(g2b)
 
 #Column2
 
@@ -313,7 +326,7 @@ legend2 <- get_legend(g1b)
 
 # Combine all plots ------------------------------------------------------------
 
-(figure1 <- plot_grid(g1a, NULL, col2, 
+(figure1 <- plot_grid(g2a, NULL, col2, 
                       rel_widths = c(2.1, -0.1, 1), 
                       nrow=1,
                       labels = c("a", "")))
@@ -327,7 +340,7 @@ ggsave("Figure 1.pdf", figure1,
 # Figure 2: Single and multiple stressors by system and taxa ###################
 # Panel a: Single stressors by system ------------------------------------------
 
-(g2a <- ms1 %>%
+(g3a <- ms1 %>%
    gather_draws(`b_.*`, regex = TRUE) %>% 
    median_qi(.width = .95) %>%
    mutate(.variable = gsub("b_threats", "", .variable), 
@@ -340,7 +353,7 @@ ggsave("Figure 1.pdf", figure1,
           .variable = gsub(":System.*", "", .variable),
           number = str_count(.variable,"[A-Z]")) %>%
    filter(number==1) %>% 
-   ggplot(aes(x = reorder(.variable, -.value),
+   ggplot(aes(x = reorder(.variable, -.lower),
               y = .value, colour=System, group=System)) +
     geom_point(size=4,position =position_dodge(.7)) +
     geom_errorbar( aes(ymin=.lower, ymax=.upper), 
@@ -349,7 +362,7 @@ ggsave("Figure 1.pdf", figure1,
   geom_hline(yintercept = 0, lty = 2, size = 0.5) +
    labs(x = "",
         y = expression(paste("Population trend (", mu, ")",sep = ""))) +
-   scale_y_continuous(labels = scaleFUN,limits = c(-.1,.1)) +
+   scale_y_continuous(labels = scaleFUN,limits = c(-.25,.25)) +
    scale_colour_manual("", values = system_pal)+
    theme(plot.tag = element_text(size = 14, face = 'bold'),
          plot.margin = unit(c(0, 0, 0.5, 0), "cm"),
@@ -374,11 +387,11 @@ TableS1 <- as.data.frame(describe_posterior(ms1, ci = 0.95, test="none")) %>%
 
 setwd(ResultPath)
 
-write.csv(TableS1, "Table S1.csv")
+write.csv2(TableS1, "Table S1.csv")
 
 # Panel b: Single stressors by taxon -------------------------------------------
 
-(g2b <- mt1 %>%
+(g3b <- mt1 %>%
    gather_draws(`b_.*`, regex = TRUE) %>% 
    median_qi(.width = .95) %>%
    mutate(.variable = gsub("b_threats", "", .variable), 
@@ -390,8 +403,16 @@ write.csv(TableS1, "Table S1.csv")
           Taxon =gsub(":", "", Taxon),
           .variable = gsub(":Taxon.*", "", .variable),
           number = str_count(.variable,"[A-Z]")) %>%
-   filter(number==1) %>% 
-   ggplot(aes(x = reorder(.variable, -.value),
+    filter(number==1, 
+           Taxon!="Amphibians"|.variable!="Disease",
+           Taxon!="Amphibians"|.variable!="Exploitation",
+           Taxon!="Amphibians"|.variable!="Climate change",
+           Taxon!="Amphibians"|.variable!="Pollution",
+           Taxon!="Amphibians"|.variable!="Invasive",
+           Taxon!="Reptiles"|.variable!="Disease",
+           Taxon!="Fish"|.variable!="Disease",
+           Taxon!="Reptiles"|.variable!="Pollution") %>%
+   ggplot(aes(x = reorder(.variable, -.lower),
               y = .value, colour=Taxon, group=Taxon)) +
    geom_point(size=4,position =position_dodge(.7)) +
    geom_errorbar( aes(ymin=.lower, ymax=.upper), 
@@ -400,7 +421,7 @@ write.csv(TableS1, "Table S1.csv")
    geom_hline(yintercept = 0, lty = 2, size = 0.5) +
    labs(x = "",
         y = "") +
-   scale_y_continuous(labels = scaleFUN,limits = c(-.1,.1)) +
+   scale_y_continuous(labels = scaleFUN,limits = c(-.25,.25)) +
    scale_colour_manual("", 
                        values = taxon_pal)+
    theme(plot.tag = element_text(size = 14, face = 'bold'),
@@ -424,112 +445,28 @@ TableS2 <- as.data.frame(describe_posterior(mt1, ci = 0.95, test="none")) %>%
 
 # Save it 
 
-write.csv(TableS2, "TableS2.csv")
+write.csv2(TableS2, "TableS2.csv")
 
 # Panel c: Multiple stressors by system ----------------------------------------
 
-(g2c <- mmus %>%
-    gather_draws(`b_.*`, regex = TRUE) %>%
-    median_qi(.width = .95) %>%
-    mutate(.variable = gsub("b_", "", .variable),
-           .variable = gsub("InvasivesppDgenes", "Invasive", .variable),
-           .variable = gsub("HabitatdegradationDchange", "Habitat degradation", .variable),
-           .variable = gsub("Habitatloss", "Habitat loss", .variable),
-           .variable = gsub("Climatechange", "Climate change", .variable),
-           .variable = gsub("noneNone", "None", .variable),
-           System = gsub(".*System", "", .variable),
-           System =gsub(":", "", System),
-           System = gsub("(Marine).*", "\\1", System),
-           System = gsub("(Freshwater).*", "\\1", System),
-           System = gsub("(Terrestrial).*", "\\1", System),
-           threat = gsub("pollution", "", .variable),
-           threat = gsub("habitatl", "", threat),
-           threat = gsub("invasive", "", threat),
-           threat = gsub("climatechange", "", threat),
-           threat = gsub("exploitation", "", threat),
-           threat = gsub("none", "", threat),
-           threat = gsub("disease", "", threat),
-           threat = gsub(".*Marine", "", threat),
-           threat = gsub(".*Freshwater", "", threat),
-           threat = gsub(".*Terrestrial", "", threat),
-           threat = gsub(":", "", threat),  
-           threat=ifelse(grepl("None",.variable), "None",
-                         ifelse(grepl("No", .variable), "No", 
-                                threat)),
-           threat =factor(threat, levels = c("None",
-                                                   "Habitat loss",
-                                                   "Exploitation",
-                                                   "Pollution",
-                                                   "Climate change",
-                                                   "Disease",
-                                                   "Invasive"))) %>%
-    filter(threat!="No") %>%
-    ggplot(aes(x = reorder(threat, -.value),
-               y = .value, group=System, colour=System)) +
-   geom_point(size=4,position =position_dodge(.7)) +
-   geom_errorbar( aes(ymin=.lower, ymax=.upper), 
-                  width=0, alpha=0.9, size=1.3,
-                  position=position_dodge(0.7))+
-   geom_hline(yintercept = 0, lty = 2, size = 0.5) +
-   labs(x = "",
-        y = expression(paste("Population trend (", mu, ")",sep = ""))) +
-   scale_y_continuous(labels = scaleFUN,limits = c(-.1,.1)) +
-   scale_colour_manual("", values = system_pal)+
-   theme(plot.tag = element_text(size = 14, face = 'bold'),
-         plot.margin = unit(c(0, 0, 0.5, 0), "cm"),
-         plot.title = element_text(size = 14, hjust = -0.2),
-         axis.text.x = element_text(angle=25, hjust=1)))
-
-# Table S3 ---------------------------------------------------------------------
-
-TableS3 <- as.data.frame(describe_posterior(mmus, ci = 0.95, test="none")) %>% 
-  mutate(Parameter = gsub("b_", "", Parameter),
-         Parameter = gsub("InvasivesppDgenes", "Invasive", Parameter),
-         Parameter = gsub("HabitatdegradationDchange", "Habitat degradation", Parameter),
-         Parameter = gsub("Habitatloss", "Habitat loss", Parameter),
-         Parameter = gsub("Climatechange", "Climate change", Parameter),
-         Parameter = gsub("noneNone", "None", Parameter),
-         System = gsub(".*System", "", Parameter),
-         System =gsub("\\.", "", System),
-         System = gsub("(Marine).*", "\\1", System),
-         System = gsub("(Freshwater).*", "\\1", System),
-         System = gsub("(Terrestrial).*", "\\1", System),
-         threat = gsub("pollution", "", Parameter),
-         threat = gsub("habitatl", "", threat),
-         threat = gsub("invasive", "", threat),
-         threat = gsub("climatechange", "", threat),
-         threat = gsub("exploitation", "", threat),
-         threat = gsub("none", "", threat),
-         threat = gsub("disease", "", threat),
-         threat = gsub(".*Marine", "", threat),
-         threat = gsub(".*Freshwater", "", threat),
-         threat = gsub(".*Terrestrial", "", threat),
-         threat = gsub("\\.", "", threat),  
-         threat=ifelse(grepl("None",Parameter), "None",
-                       ifelse(grepl("No", Parameter), "No", 
-                              threat))) 
-# Save it 
-
-write.csv(TableS3, "TableS3.csv")
-
-# Panel d: Multiple stressors by taxon -----------------------------------------
-
-(g2d <- mmut %>%
+(g3c <- mmu_fr %>%
    gather_draws(`b_.*`, regex = TRUE) %>%
    median_qi(.width = .95) %>%
+   mutate(System="Freshwater") %>% 
+   rbind(mmu_mar %>%
+           gather_draws(`b_.*`, regex = TRUE) %>%
+           median_qi(.width = .95) %>%
+           mutate(System="Marine")) %>% 
+   rbind(mmu_ter %>%
+           gather_draws(`b_.*`, regex = TRUE) %>%
+           median_qi(.width = .95) %>%
+           mutate(System="Terrestrial")) %>% 
    mutate(.variable = gsub("b_", "", .variable),
           .variable = gsub("InvasivesppDgenes", "Invasive", .variable),
           .variable = gsub("HabitatdegradationDchange", "Habitat degradation", .variable),
           .variable = gsub("Habitatloss", "Habitat loss", .variable),
           .variable = gsub("Climatechange", "Climate change", .variable),
           .variable = gsub("noneNone", "None", .variable),
-          Taxon = gsub(".*Taxon", "", .variable),
-          Taxon =gsub(":", "", Taxon),
-          Taxon = gsub("(Amphibians).*", "\\1", Taxon),
-          Taxon = gsub("(Birds).*", "\\1", Taxon),
-          Taxon = gsub("(Mammals).*", "\\1", Taxon),
-          Taxon = gsub("(Fish).*", "\\1", Taxon),
-          Taxon = gsub("(Reptiles).*", "\\1", Taxon),
           threat = gsub("pollution", "", .variable),
           threat = gsub("habitatl", "", threat),
           threat = gsub("invasive", "", threat),
@@ -537,12 +474,6 @@ write.csv(TableS3, "TableS3.csv")
           threat = gsub("exploitation", "", threat),
           threat = gsub("none", "", threat),
           threat = gsub("disease", "", threat),
-          threat = gsub(".*Amphibians", "", threat),
-          threat = gsub(".*Birds", "", threat),
-          threat = gsub(".*Fish", "", threat),
-          threat = gsub(".*Mammals", "", threat),
-          threat = gsub(".*Reptiles", "", threat),
-          threat = gsub(":", "", threat),  
           threat=ifelse(grepl("None",.variable), "None",
                         ifelse(grepl("No", .variable), "No", 
                                threat)),
@@ -554,7 +485,98 @@ write.csv(TableS3, "TableS3.csv")
                                             "Disease",
                                             "Invasive"))) %>%
    filter(threat!="No") %>%
-   ggplot(aes(x = reorder(threat, -.value),
+   ggplot(aes(x = reorder(threat, -.lower),
+              y = .value, group=System, colour=System)) +
+   geom_point(size=4,position =position_dodge(.7)) +
+   geom_errorbar( aes(ymin=.lower, ymax=.upper), 
+                  width=0, alpha=0.9, size=1.3,
+                  position=position_dodge(0.7))+
+   geom_hline(yintercept = 0, lty = 2, size = 0.5) +
+   labs(x = "",
+        y = expression(paste("Population trend (", mu, ")",sep = ""))) +
+   scale_y_continuous(labels = scaleFUN,limits = c(-.4,.4)) +
+   scale_colour_manual("", values = system_pal)+
+   theme(plot.tag = element_text(size = 14, face = 'bold'),
+         plot.margin = unit(c(0, 0, 0.5, 0), "cm"),
+         plot.title = element_text(size = 14, hjust = -0.2),
+         axis.text.x = element_text(angle=25, hjust=1)))
+
+# Table S3 ---------------------------------------------------------------------
+
+TableS3 <- as.data.frame(describe_posterior(mmu_fr, ci = 0.95, test="none")) %>% 
+  mutate(System="Freshwater") %>% 
+  rbind(as.data.frame(describe_posterior(mmu_mar, ci = 0.95, test="none")) %>% 
+          mutate(System="Marine")) %>% 
+  rbind(as.data.frame(describe_posterior(mmu_ter, ci = 0.95, test="none")) %>% 
+          mutate(System="Terrestrial")) %>% 
+  mutate(Parameter = gsub("b_", "", Parameter),
+         Parameter = gsub("InvasivesppDgenes", "Invasive", Parameter),
+         Parameter = gsub("HabitatdegradationDchange", "Habitat degradation", Parameter),
+         Parameter = gsub("Habitatloss", "Habitat loss", Parameter),
+         Parameter = gsub("Climatechange", "Climate change", Parameter),
+         Parameter = gsub("noneNone", "None", Parameter),
+         threat = gsub("pollution", "", Parameter),
+         threat = gsub("habitatl", "", threat),
+         threat = gsub("invasive", "", threat),
+         threat = gsub("climatechange", "", threat),
+         threat = gsub("exploitation", "", threat),
+         threat = gsub("none", "", threat),
+         threat = gsub("disease", "", threat),
+         threat=ifelse(grepl("None",Parameter), "None",
+                       ifelse(grepl("No", Parameter), "No", 
+                              threat))) 
+# Save it 
+
+write.csv2(TableS3, "TableS3.csv")
+
+# Panel d: Multiple stressors by taxon -----------------------------------------
+
+(g3d <- mmu_am %>%
+   gather_draws(`b_.*`, regex = TRUE) %>%
+   median_qi(.width = .95) %>%
+   mutate(Taxon="Amphibians") %>% 
+   rbind(mmu_bi %>%
+           gather_draws(`b_.*`, regex = TRUE) %>%
+           median_qi(.width = .95) %>%
+           mutate(Taxon="Birds")) %>% 
+   rbind(mmu_f %>%
+           gather_draws(`b_.*`, regex = TRUE) %>%
+           median_qi(.width = .95) %>%
+           mutate(Taxon="Fish")) %>% 
+   rbind(mmu_ma %>%
+           gather_draws(`b_.*`, regex = TRUE) %>%
+           median_qi(.width = .95) %>%
+           mutate(Taxon="Mammals")) %>% 
+   rbind(mmu_rep %>%
+           gather_draws(`b_.*`, regex = TRUE) %>%
+           median_qi(.width = .95) %>%
+           mutate(Taxon="Reptiles")) %>% 
+   mutate(.variable = gsub("b_", "", .variable),
+          .variable = gsub("InvasivesppDgenes", "Invasive", .variable),
+          .variable = gsub("HabitatdegradationDchange", "Habitat degradation", .variable),
+          .variable = gsub("Habitatloss", "Habitat loss", .variable),
+          .variable = gsub("Climatechange", "Climate change", .variable),
+          .variable = gsub("noneNone", "None", .variable),
+          threat = gsub("pollution", "", .variable),
+          threat = gsub("habitatl", "", threat),
+          threat = gsub("invasive", "", threat),
+          threat = gsub("climatechange", "", threat),
+          threat = gsub("exploitation", "", threat),
+          threat = gsub("none", "", threat),
+          threat = gsub("disease", "", threat),
+          threat=ifelse(grepl("None",.variable), "None",
+                        ifelse(grepl("No", .variable), "No", 
+                               threat)),
+          threat =factor(threat, levels = c("None",
+                                            "Habitat loss",
+                                            "Exploitation",
+                                            "Pollution",
+                                            "Climate change",
+                                            "Disease",
+                                            "Invasive"))) %>%
+   filter(threat!="No",
+          threat!="Disease"|Taxon!="Fish") %>%
+   ggplot(aes(x = reorder(threat, -.lower),
               y = .value, group=Taxon, colour=Taxon)) +
    geom_point(size=4,position =position_dodge(.7)) +
    geom_errorbar( aes(ymin=.lower, ymax=.upper), 
@@ -563,7 +585,7 @@ write.csv(TableS3, "TableS3.csv")
    geom_hline(yintercept = 0, lty = 2, size = 0.5) +
    labs(x = "",
         y = "") +
-   scale_y_continuous(labels = scaleFUN,limits = c(-.1,.1)) +
+   scale_y_continuous(labels = scaleFUN,limits = c(-.4,.4)) +
    scale_colour_manual("", values = taxon_pal)+
    theme(plot.tag = element_text(size = 14, face = 'bold'),
          plot.margin = unit(c(0, 0, 0.5, 0), "cm"),
@@ -572,20 +594,22 @@ write.csv(TableS3, "TableS3.csv")
 
 # Table S4 ---------------------------------------------------------------------
 
-TableS4 <- as.data.frame(describe_posterior(mmut, ci = 0.95, test="none")) %>% 
+TableS4 <- as.data.frame(describe_posterior(mmu_am, ci = 0.95, test="none")) %>% 
+  mutate(Taxon="Amphibians") %>% 
+  rbind(as.data.frame(describe_posterior(mmu_bi, ci = 0.95, test="none")) %>% 
+          mutate(Taxon="Birds")) %>% 
+  rbind(as.data.frame(describe_posterior(mmu_f, ci = 0.95, test="none")) %>% 
+          mutate(Taxon="Fish"))  %>% 
+  rbind(as.data.frame(describe_posterior(mmu_ma, ci = 0.95, test="none")) %>% 
+          mutate(Taxon="Mammals")) %>% 
+  rbind(as.data.frame(describe_posterior(mmu_rep, ci = 0.95, test="none")) %>% 
+          mutate(Taxon="Reptiles")) %>% 
   mutate(Parameter = gsub("b_", "", Parameter),
          Parameter = gsub("InvasivesppDgenes", "Invasive", Parameter),
          Parameter = gsub("HabitatdegradationDchange", "Habitat degradation", Parameter),
          Parameter = gsub("Habitatloss", "Habitat loss", Parameter),
          Parameter = gsub("Climatechange", "Climate change", Parameter),
          Parameter = gsub("noneNone", "None", Parameter),
-         Taxon = gsub(".*Taxon", "", Parameter),
-         Taxon =gsub("\\.", "", Taxon),
-         Taxon = gsub("(Amphibians).*", "\\1", Taxon),
-         Taxon = gsub("(Birds).*", "\\1", Taxon),
-         Taxon = gsub("(Mammals).*", "\\1", Taxon),
-         Taxon = gsub("(Fish).*", "\\1", Taxon),
-         Taxon = gsub("(Reptiles).*", "\\1", Taxon),
          threat = gsub("pollution", "", Parameter),
          threat = gsub("habitatl", "", threat),
          threat = gsub("invasive", "", threat),
@@ -593,11 +617,6 @@ TableS4 <- as.data.frame(describe_posterior(mmut, ci = 0.95, test="none")) %>%
          threat = gsub("exploitation", "", threat),
          threat = gsub("none", "", threat),
          threat = gsub("disease", "", threat),
-         threat = gsub(".*Amphibians", "", threat),
-         threat = gsub(".*Birds", "", threat),
-         threat = gsub(".*Fish", "", threat),
-         threat = gsub(".*Mammals", "", threat),
-         threat = gsub(".*Reptiles", "", threat),
          threat = gsub("\\.", "", threat),  
          threat=ifelse(grepl("None",Parameter), "None",
                        ifelse(grepl("No", Parameter), "No", 
@@ -605,7 +624,7 @@ TableS4 <- as.data.frame(describe_posterior(mmut, ci = 0.95, test="none")) %>%
 
 # Save it 
 
-write.csv(TableS4, "TableS4.csv")
+write.csv2(TableS4, "TableS4.csv")
 
 # Combine ----------------------------------------------------------------------
 
@@ -620,13 +639,13 @@ title <- ggdraw() +
 # Create subtitles
 
 subtitle1 <- ggdraw() + 
-  draw_label("Taxa",
+  draw_label("System",
              size = 16,
              x = 0.5,
              vjust = 0) 
 
 subtitle2 <- ggdraw() + 
-  draw_label("System",
+  draw_label("Taxon",
              x = 0.5,
              size = 16,
              vjust = 0) 
@@ -634,9 +653,9 @@ subtitles <- plot_grid(subtitle1, subtitle2, nrow = 1)
 
 # Create row 1
 
-(row1 <- plot_grid(g2a+theme(legend.position = "none",
+(row1 <- plot_grid(g3a+theme(legend.position = "none",
                              axis.title.x = element_blank()),
-                   g2b+theme(legend.position = "none",
+                   g3b+theme(legend.position = "none",
                              axis.title.x = element_blank()),
                    labels = "auto"))
 # Create title 2
@@ -649,9 +668,9 @@ title2 <- ggdraw() +
 
 # Create row 2
 
-(row2 <- plot_grid(g2c+theme(legend.position = "none",
+(row2 <- plot_grid(g3c+theme(legend.position = "none",
                              axis.title.x = element_blank()),
-                   g2d+theme(legend.position = "none",
+                   g3d+theme(legend.position = "none",
                              axis.title.x = element_blank()),
                    labels = c("c","d")))
 
@@ -684,10 +703,9 @@ data_ad <- data_int2 %>%
                                  "Non-additive", "Additive")) %>% 
   group_by(interaction.type) %>% 
   summarise(n=n()) %>% 
-  complete(interaction.type) %>%
+  tidyr::complete(interaction.type) %>%
   mutate(n=replace_na(n, 0),
          freq = (n / sum(n))*100) 
-
 
 # Change scale to make it easier for the plot
 
@@ -699,8 +717,8 @@ data_freq_taxon<- data_freq_taxon %>% mutate(freq=freq/100)
 # Save them 
 
 setwd(ResultPath)
-write.csv(data_freq, "Table S5.csv")
-write.csv(data_freq_taxon, "Table S6.csv")
+write.csv2(data_freq, "Table S5.csv")
+write.csv2(data_freq_taxon, "Table S6.csv")
 
 # Panel a: System --------------------------------------------------------------
 
