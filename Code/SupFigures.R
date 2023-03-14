@@ -61,12 +61,12 @@ ResultPath <-  paste0(path, "Results")
 
 # Load data 
 
-load(paste0(ResultPath, "/TenResults.RData"))
-load(paste0(DataPath, "/TenYearsData.RData"))
+load(paste0(ResultPath, "/Results.RData"))
+load(paste0(DataPath, "/FiveYearsData.RData"))
 
 # Change name invasive species 
 
-pops_data10 <- pops_data10 %>% 
+pop_data <- pop_data %>% 
   mutate(threats = gsub("Invasive spp/genes", "Invasive", threats),)
 
 # Load functions for the plots 
@@ -77,20 +77,21 @@ source(paste0(CodePath,"/PlotFunctions.R"))
 
 # Simulate the data 
 
-sim_data <- data.frame(value=c(-1, -2, -1.5,-1.5, -3.5, 0.2), 
-                       upper=c(-0.5, -1.5,-0.5, -1, -3, 0.7),
-                       lower=c(-1.5, -2.5, -2.5, -2, -4, -0.3),
-                       id=c(1:6),
-                       stressor= c("A", "B", "A+B","A:B", "A:B","A:B"), 
-                       interaction=c("","", "", "Additive", "Synergistic", "Antagonistic"),
+sim_data <- data.frame(value=c(-1,   -2,  -1.5,-0.5, -2.5, -1.5,-3.5, 0.2), 
+                       upper=c(-0.5, -1.5,-0.5, 0,-2,  -1,  -3,   0.7),
+                       lower=c(-1.5, -2.5,-2.5,-1, -3, -2,  -4,   -0.3),
+                       id=c(1:8),
+                       stressor= c("A", "B", "A+B","A:B","A:B","A:B", "A:B","A:B"), 
+                       interaction=c("","", "", "Additive","Additive","Additive", "Synergistic", "Antagonistic"),
                        group=c("Individual threats","Individual threats", 
                                "Null model", 
-                               "Interactive effects", "Interactive effects","Interactive effects")) %>% 
+                               "Interactive effects","Interactive effects","Interactive effects",
+                               "Interactive effects","Interactive effects")) %>% 
   mutate(group=factor(group, levels=c("Individual threats", "Null model", "Interactive effects"))) 
 
 # We draw the arrows that we want to show
 
-(figure1 <- sim_data %>% 
+(figureS1 <- sim_data %>% 
     ggplot(aes(y=value, x=stressor, 
                group=id, colour=interaction))+
     geom_hline(yintercept = 0) +
@@ -106,17 +107,10 @@ sim_data <- data.frame(value=c(-1, -2, -1.5,-1.5, -3.5, 0.2),
                                    "#1E63B3",
                                    "#B32315"))+
     facet_wrap(~group,scales = "free_x")+
-    geom_text(data=sim_data %>% filter(group=="Interactive effects", 
-                                       interaction=="Additive"),
-              aes(x = 1, y = upper+0.2),
+    geom_text(data=sim_data %>% filter(id==6),
+              aes(x = 0.75, y = value),
               size = 4, color = "#694364", lineheight = .9,
               label = "Additive")+
-    geom_curve(data=sim_data %>% filter(group=="Interactive effects", 
-                                        interaction=="Additive"),
-               aes(x = 1, y = upper, xend = 0.75, 
-                   yend = value+0.01),
-               arrow = arrow(length = unit(0.07, "inch")), size = 0.4,
-               color = "#694364", curvature = -0.3)+
     geom_text(data=sim_data %>% filter(group=="Interactive effects", 
                                        interaction=="Antagonistic"),
               aes(x = 0.92, y = upper+0.2),
@@ -124,17 +118,19 @@ sim_data <- data.frame(value=c(-1, -2, -1.5,-1.5, -3.5, 0.2),
               label = "Antagonistic")+
     geom_curve(data=sim_data %>% filter(group=="Interactive effects", 
                                         interaction=="Antagonistic"),
-               aes(x = 0.92, y = upper, xend = 1.24, yend = value),
+               aes(x = 0.92, y = upper, 
+                   xend = 1.31, yend = value),
                arrow = arrow(length = unit(0.07, "inch")), size = 0.4,
                color = "#1E63B3", curvature = 0.3)+
     geom_text(data=sim_data %>% filter(group=="Interactive effects", 
                                        interaction=="Synergistic"),
-              aes(x = 1.30, y = upper+0.2),
+              aes(x = 0.75, y = lower),
               size = 4, color = "#B32315", lineheight = .9,
               label = "Synergistic")+
     geom_curve(data=sim_data %>% filter(group=="Interactive effects", 
                                         interaction=="Synergistic"),
-               aes(x = 1.30, y = upper, xend = 1.06, yend = value),
+               aes(x = 0.75, y = lower+0.2, 
+                   xend = 1.129, yend = value),
                arrow = arrow(length = unit(0.07, "inch")), size = 0.4,
                color = "#B32315", curvature = -0.3)+
     labs(x="Threats", y="Population trend") +
@@ -147,14 +143,14 @@ sim_data <- data.frame(value=c(-1, -2, -1.5,-1.5, -3.5, 0.2),
 
 # Save it
 
-ggsave("Figure 1.pdf", figure1,
+ggsave("Figure S1.pdf", figureS1,
        path = ResultPath, height = 4, width = 8)
 
-# Figure S2: threats across systems --------------------------------------------  
+# Figure S6: threats across systems --------------------------------------------  
 
 # One threat -----------------------------------------------------------------
 
-(gs2a <- ms1 %>%
+(gs1a <- ms1 %>%
    gather_draws(`b_.*`, regex = TRUE) %>% 
    median_qi(.width = .95) %>%
    mutate(.variable = gsub("b_threats", "", .variable), 
@@ -181,10 +177,9 @@ ggsave("Figure 1.pdf", figure1,
    scale_x_continuous(labels = scaleFUN) +
    theme(plot.margin = unit(c(0, 0, 0.5, 0), "cm")))
 
-
 # Two threats ------------------------------------------------------------------
 
-(gs2b <- ms1 %>%
+(gs1b <- ms1 %>%
    gather_draws(`b_.*`, regex = TRUE) %>% 
    median_qi(.width = .95) %>%
    mutate(.variable = gsub("b_threats", "", .variable), 
@@ -196,15 +191,17 @@ ggsave("Figure 1.pdf", figure1,
           System =gsub(":", "", System),
           .variable = gsub(":System.*", "", .variable),
           number = str_count(.variable,"[A-Z]")) %>%
-   filter(number==2, .variable!="Exploitation:Disease"|System!="Freshwater",
-          .variable!="Climate change:Disease"|System!="Marine",
-          .variable!="Climate change:Disease"|System!="Terrestrial",
-          .variable!="Pollution:Invasive"|System!="Marine",
-          .variable!="Pollution:Invasive"|System!="Freshwater",
-          .variable!="Invasive:Disease"|System!="Freshwater",
-          .variable!="Invasive:Disease"|System!="Marine",
-          .variable!="Invasive:Climate change"|System!="Freshwater",
-          .variable!="Invasive:Climate change"|System!="Marine") %>% 
+    filter(number==2, 
+           .variable!="Exploitation:Disease"|System!="Freshwater",
+           .variable!="Pollution:Disease"|System!="Terrestrial",
+           .variable!="Climate change:Disease"|System!="Terrestrial",
+           .variable!="Climate change:Disease"|System!="Marine",
+           .variable!="Pollution:Invasive"|System!="Marine",
+           .variable!="Pollution:Invasive"|System!="Freshwater",
+           .variable!="Invasive:Disease"|System!="Freshwater",
+           .variable!="Invasive:Disease"|System!="Marine",
+           .variable!="Invasive:Climate change"|System!="Freshwater",
+           .variable!="Invasive:Climate change"|System!="Marine") %>% 
    ggplot(aes(y = reorder(.variable, -.value),
               x = .value, colour=System, group=System)) +
    geom_point(size=4,position =position_dodge(.7)) +
@@ -221,7 +218,7 @@ ggsave("Figure 1.pdf", figure1,
 
 # Three threats ----------------------------------------------------------------
 
-(gs2c <- ms1 %>%
+(gs1c <- ms1 %>%
    gather_draws(`b_.*`, regex = TRUE) %>% 
    median_qi(.width = .95) %>%
    mutate(.variable = gsub("b_threats", "", .variable), 
@@ -233,21 +230,27 @@ ggsave("Figure 1.pdf", figure1,
           System =gsub(":", "", System),
           .variable = gsub(":System.*", "", .variable),
           number = str_count(.variable,"[A-Z]")) %>%
-   filter(number==3, .variable!="Habitat loss:Climate change:Disease"|System!="Marine",
+   filter(number==3, 
+          .variable!="Habitat loss:Climate change:Disease"|System!="Marine",
           .variable!="Invasive:Climate change:Disease"|System!="Marine",
           .variable!="Invasive:Climate change:Disease"|System!="Terrestrial",
-          .variable!="Pollution:Habitat loss:Invasive"|System!="Marine",
-          .variable!="Pollution:Invasive:Exploitation"|System!="Freshwater",
-          .variable!="Pollution:Climate change:Disease"|System!="Terrestrial",
-          .variable!="Invasive:Climate change:Exploitation"|System!="Freshwater",
-          .variable!="Invasive:Climate change:Exploitation"|System!="Terrestrial",
-          .variable!="Invasive:Exploitation:Disease"|System!="Freshwater",
-          .variable!="Pollution:Exploitation:Disease"|System!="Terrestrial",
-          .variable!="Habitat loss:Invasive:Disease"|System!="Freshwater",
+           .variable!="Pollution:Habitat loss:Invasive"|System!="Marine",
+   #        .variable!="Pollution:Invasive:Exploitation"|System!="Freshwater",
+           .variable!="Pollution:Climate change:Disease"|System!="Terrestrial",
+           .variable!="Invasive:Climate change:Exploitation"|System!="Freshwater",
+   .variable!="Pollution:Exploitation:Disease"|System!="Terrestrial",
+   .variable!="Pollution:Exploitation:Disease"|System!="Freshwater",
+           .variable!="Invasive:Climate change:Exploitation"|System!="Terrestrial",
+           .variable!="Invasive:Exploitation:Disease"|System!="Freshwater",
+   .variable!="Invasive:Exploitation:Disease"|System!="Terrestrial",
+   #        .variable!="Pollution:Exploitation:Disease"|System!="Terrestrial",
+           .variable!="Habitat loss:Invasive:Disease"|System!="Freshwater",
           .variable!="Pollution:Climate change:Exploitation"|System!="Terrestrial",
           .variable!="Pollution:Climate change:Exploitation"|System!="Freshwater",
-          .variable!="Pollution:Invasive:Climate change"|System!="Terrestrial",
-          .variable!="Pollution:Invasive:Climate change"|System!="Freshwater") %>% 
+           .variable!="Pollution:Invasive:Climate change"|System!="Terrestrial",
+           .variable!="Pollution:Invasive:Climate change"|System!="Freshwater",
+           .variable!="Habitat loss:Invasive:Climate change"|System!="Marine") %>% 
+   #        .variable!="Pollution:Invasive:Exploitation"|System!="Terrestrial") %>% 
    ggplot(aes(y = reorder(.variable, -.value),
               x = .value, colour=System, group=System)) +
    geom_point(size=4,position =position_dodge(.7)) +
@@ -260,7 +263,216 @@ ggsave("Figure 1.pdf", figure1,
    scale_y_discrete(labels = scales::wrap_format(25)) +
    scale_colour_manual("", values = system_pal)+
    scale_x_continuous(labels = scaleFUN) +
+   theme(plot.margin = unit(c(0, 0.75, 0, 0), "cm")))
+
+# We combine them --------------------------------------------------------------
+
+# First row
+
+row1 <- plot_grid(gs1a+theme(legend.position = "none"),
+                  gs1b+theme(legend.position = "none"),
+                  gs1c+theme(legend.position = "none"),
+                  nrow = 1,labels = "auto")
+
+# get the legend
+
+legend <- get_legend(gs1a+theme(legend.position = "bottom",
+                                legend.text = element_text(size = 16)))
+
+# Figure 
+
+(figS6 <- plot_grid(row1, legend,
+                  rel_heights = c(1,.1),
+                  ncol = 1))
+
+# Save
+
+ggsave("Figure S6.pdf", figS6,
+       height = 10, width = 17,
+       path = ResultPath )
+
+# Figure S7: threats across taxon ----------------------------------------------  
+
+# One threat -------------------------------------------------------------------
+
+(gs2a <- mt1 %>%
+   gather_draws(`b_.*`, regex = TRUE) %>% 
+   median_qi(.width = .95) %>%
+   mutate(.variable = gsub("b_threats", "", .variable), 
+          .variable = gsub("InvasivesppDgenes", "Invasive", .variable),
+          .variable = gsub("HabitatdegradationDchange", "Habitat degradation", .variable),
+          .variable = gsub("Habitatloss", "Habitat loss", .variable),
+          .variable = gsub("Climatechange", "Climate change", .variable),
+          Taxon = gsub(".*Taxon", "", .variable),
+          Taxon =gsub(":", "", Taxon),
+          .variable = gsub(":Taxon.*", "", .variable),
+          number = str_count(.variable,"[A-Z]")) %>%
+   filter(number==1, 
+          Taxon!="Amphibians"|.variable!="Disease",
+          Taxon!="Amphibians"|.variable!="Exploitation",
+          Taxon!="Amphibians"|.variable!="Climate change",
+          Taxon!="Amphibians"|.variable!="Pollution",
+          Taxon!="Amphibians"|.variable!="Invasive",
+          Taxon!="Reptiles"|.variable!="Disease",
+          Taxon!="Fish"|.variable!="Disease",
+          Taxon!="Reptiles"|.variable!="Pollution") %>%   
+   ggplot(aes(y = reorder(.variable, -.value),
+              x = .value, colour=Taxon, group=Taxon)) +
+   geom_point(size=4,position =position_dodge(.7)) +
+   geom_errorbar( aes(xmin=.lower, xmax=.upper), 
+                  width=0, alpha=0.9, size=1.3,
+                  position=position_dodge(0.7))+
+   geom_vline(xintercept = 0, lty = 2, size = 0.5) +
+   labs(x = "",
+        y = expression(paste("Population trend (", mu, ")",sep = ""))) +
+   scale_y_discrete(labels = scales::wrap_format(25)) +
+   scale_colour_manual("", values = taxon_pal)+
+   scale_x_continuous(labels = scaleFUN) +
    theme(plot.margin = unit(c(0, 0, 0.5, 0), "cm")))
+
+# Two threats ------------------------------------------------------------------
+
+(gs2b <- mt1 %>%
+   gather_draws(`b_.*`, regex = TRUE) %>% 
+   median_qi(.width = .95) %>%
+   mutate(.variable = gsub("b_threats", "", .variable), 
+          .variable = gsub("InvasivesppDgenes", "Invasive", .variable),
+          .variable = gsub("HabitatdegradationDchange", "Habitat degradation", .variable),
+          .variable = gsub("Habitatloss", "Habitat loss", .variable),
+          .variable = gsub("Climatechange", "Climate change", .variable),
+          Taxon = gsub(".*Taxon", "", .variable),
+          Taxon =gsub(":", "", Taxon),
+          .variable = gsub(":Taxon.*", "", .variable),
+          number = str_count(.variable,"[A-Z]"))%>%
+   filter(number==2, 
+           Taxon!="Reptiles"|.variable!="Habitat loss:Invasive",
+           Taxon!="Reptiles"|.variable!="Exploitation:Disease",
+           Taxon!="Reptiles"|.variable!="Climate change:Disease",
+           Taxon!="Reptiles"|.variable!="Pollution:Invasive",
+           Taxon!="Reptiles"|.variable!="Invasive:Disease",
+           Taxon!="Reptiles"|.variable!="Habitat loss:Disease",
+           Taxon!="Reptiles"|.variable!="Pollution:Disease",
+           Taxon!="Amphibians"|.variable!="Exploitation:Disease",
+           Taxon!="Reptiles"|.variable!="Habitat loss:Disease",
+           Taxon!="Amphibians"|.variable!="Climate change:Disease",
+           Taxon!="Amphibians"|.variable!="Pollution:Invasive",
+           Taxon!="Amphibians"|.variable!="Habitat loss:Exploitation",
+           Taxon!="Amphibians"|.variable!="Pollution:Disease",
+           Taxon!="Amphibians"|.variable!="Invasive:Climate change",
+           Taxon!="Amphibians"|.variable!="Invasive:Exploitation",
+           Taxon!="Amphibians"|.variable!="Climate change:Exploitation",
+           Taxon!="Amphibians"|.variable!="Pollution:Exploitation",
+           Taxon!="Fish"|.variable!="Exploitation:Disease",
+           Taxon!="Fish"|.variable!="Pollution:Invasive",
+           Taxon!="Fish"|.variable!="Pollution:Disease",
+           Taxon!="Fish"|.variable!="Climate change:Disease",
+           Taxon!="Fish"|.variable!="Invasive:Disease",
+           Taxon!="Fish"|.variable!="Habitat loss:Disease",
+           Taxon!="Fish"|.variable!="Invasive:Climate change",
+           Taxon!="Birds"|.variable!="Pollution:Invasive",
+           Taxon!="Birds"|.variable!="Invasive:Disease",
+           Taxon!="Mammals"|.variable!="Pollution:Disease",
+           Taxon!="Mammals"|.variable!="Invasive:Exploitation",
+           Taxon!="Mammals"|.variable!="Climate change:Disease",
+           Taxon!="Mammals"|.variable!="Invasive:Climate change") %>% 
+   ggplot(aes(y = reorder(.variable, -.value),
+              x = .value, colour=Taxon, group=Taxon)) +
+   geom_point(size=4,position =position_dodge(.7)) +
+   geom_errorbar( aes(xmin=.lower, xmax=.upper), 
+                  width=0, alpha=0.9, size=1.3,
+                  position=position_dodge(0.7))+
+   geom_vline(xintercept = 0, lty = 2, size = 0.5) +
+   labs(y = "",
+        x = expression(paste("Population trend (", mu, ")",sep = ""))) +
+   scale_y_discrete(labels = scales::wrap_format(25)) +
+   scale_colour_manual("", values = taxon_pal)+
+   scale_x_continuous(labels = scaleFUN) +
+   theme(plot.margin = unit(c(0, 0, 0.5, 0), "cm")))
+
+# Three threats ----------------------------------------------------------------
+
+(gs2c <- mt1 %>%
+   gather_draws(`b_.*`, regex = TRUE) %>% 
+   median_qi(.width = .95) %>%
+   mutate(.variable = gsub("b_threats", "", .variable), 
+          .variable = gsub("InvasivesppDgenes", "Invasive", .variable),
+          .variable = gsub("HabitatdegradationDchange", "Habitat degradation", .variable),
+          .variable = gsub("Habitatloss", "Habitat loss", .variable),
+          .variable = gsub("Climatechange", "Climate change", .variable),
+          Taxon = gsub(".*Taxon", "", .variable),
+          Taxon =gsub(":", "", Taxon),
+          .variable = gsub(":Taxon.*", "", .variable),
+          number = str_count(.variable,"[A-Z]"))%>%
+   filter(number==3, 
+           Taxon!="Reptiles"|.variable!="Invasive:Climate change:Disease",
+           Taxon!="Mammals"|.variable!="Invasive:Climate change:Disease",
+           Taxon!="Fish"|.variable!="Invasive:Climate change:Disease",
+           Taxon!="Birds"|.variable!="Invasive:Climate change:Disease",
+           Taxon!="Reptiles"|.variable!="Pollution:Climate change:Disease",
+           Taxon!="Mammals"|.variable!="Pollution:Climate change:Disease",
+           Taxon!="Fish"|.variable!="Pollution:Climate change:Disease",
+          Taxon!="Reptiles"|.variable!="Pollution:Invasive:Exploitation",
+          Taxon!="Mammals"|.variable!="Pollution:Invasive:Exploitation",
+          Taxon!="Fish"|.variable!="Pollution:Invasive:Exploitation",
+          Taxon!="Amphibians"|.variable!="Pollution:Invasive:Exploitation",
+           Taxon!="Amphibians"|.variable!="Habitat loss:Climate change:Exploitation",
+           Taxon!="Reptiles"|.variable!="Habitat loss:Invasive:Disease",
+           Taxon!="Mammals"|.variable!="Habitat loss:Invasive:Disease",
+           Taxon!="Fish"|.variable!="Habitat loss:Invasive:Disease",
+           Taxon!="Reptiles"|.variable!="Pollution:Habitat loss:Climate change",
+           Taxon!="Amphibians"|.variable!="Pollution:Habitat loss:Climate change",
+           Taxon!="Fish"|.variable!="Pollution:Habitat loss:Climate change",
+           Taxon!="Reptiles"|.variable!="Invasive:Exploitation:Disease",
+           Taxon!="Mammals"|.variable!="Invasive:Exploitation:Disease",
+           Taxon!="Fish"|.variable!="Invasive:Exploitation:Disease",
+           Taxon!="Amphibians"|.variable!="Invasive:Exploitation:Disease",
+           Taxon!="Reptiles"|.variable!="Habitat loss:Climate change:Disease",
+           Taxon!="Mammals"|.variable!="Habitat loss:Climate change:Disease",
+           Taxon!="Fish"|.variable!="Habitat loss:Climate change:Disease",
+          Taxon!="Reptiles"|.variable!="Pollution:Habitat loss:Disease",
+          Taxon!="Fish"|.variable!="Pollution:Habitat loss:Disease",
+          Taxon!="Amphibians"|.variable!="Pollution:Habitat loss:Disease",
+          Taxon!="Reptiles"|.variable!="Pollution:Climate change:Exploitation",
+          Taxon!="Mammals"|.variable!="Pollution:Climate change:Exploitation",
+          Taxon!="Fish"|.variable!="Pollution:Climate change:Exploitation",
+          Taxon!="Amphibians"|.variable!="Pollution:Climate change:Exploitation",
+           Taxon!="Reptiles"|.variable!="Pollution:Habitat loss:Invasive",
+           Taxon!="Mammals"|.variable!="Pollution:Habitat loss:Invasive",
+           Taxon!="Fish"|.variable!="Pollution:Habitat loss:Invasive",
+           Taxon!="Amphibians"|.variable!="Pollution:Habitat loss:Invasive",
+           Taxon!="Amphibians"|.variable!="Habitat loss:Invasive:Exploitation",
+          Taxon!="Reptiles"|.variable!="Habitat loss:Invasive:Climate change",
+          Taxon!="Amphibians"|.variable!="Habitat loss:Invasive:Climate change",
+           Taxon!="Amphibians"|.variable!="Invasive:Climate change:Exploitation",
+           Taxon!="Mammals"|.variable!="Invasive:Climate change:Exploitation",
+           Taxon!="Reptiles"|.variable!="Invasive:Climate change:Exploitation",
+           Taxon!="Fish"|.variable!="Invasive:Climate change:Exploitation",
+          Taxon!="Reptiles"|.variable!="Pollution:Invasive:Climate change",
+          Taxon!="Mammals"|.variable!="Pollution:Invasive:Climate change",
+          Taxon!="Fish"|.variable!="Pollution:Invasive:Climate change",
+          Taxon!="Amphibians"|.variable!="Pollution:Invasive:Climate change",
+          Taxon!="Fish"|.variable!="Pollution:Exploitation:Disease",
+          Taxon!="Amphibians"|.variable!="Pollution:Exploitation:Disease",
+           Taxon!="Amphibians"|.variable!="Habitat loss:Invasive:Exploitation",
+           Taxon!="Reptiles"|.variable!="Habitat loss:Exploitation:Disease",
+           Taxon!="Fish"|.variable!="Habitat loss:Exploitation:Disease",
+           Taxon!="Mammals"|.variable!="Habitat loss:Exploitation:Disease",
+           Taxon!="Amphibians"|.variable!="Habitat loss:Exploitation:Disease",
+          Taxon!="Birds"|.variable!="Pollution:Climate change:Exploitation",
+          Taxon!="Amphibians"|.variable!="Invasive:Climate change:Disease") %>% 
+   ggplot(aes(y = reorder(.variable, -.value),
+              x = .value, colour=Taxon, group=Taxon)) +
+   geom_point(size=4,position =position_dodge(.7)) +
+   geom_errorbar( aes(xmin=.lower, xmax=.upper), 
+                  width=0, alpha=0.9, size=1.3,
+                  position=position_dodge(0.7))+
+   geom_vline(xintercept = 0, lty = 2, size = 0.5) +
+   labs(y = "",
+        x = expression(paste("Population trend (", mu, ")",sep = ""))) +
+   scale_y_discrete(labels = scales::wrap_format(25)) +
+   scale_colour_manual("", values = taxon_pal)+
+   scale_x_continuous(labels = scaleFUN) +
+   theme(plot.margin = unit(c(0, 0.75, 0, 0), "cm")))
 
 # We combine them --------------------------------------------------------------
 
@@ -276,224 +488,19 @@ row1 <- plot_grid(gs2a+theme(legend.position = "none"),
 legend <- get_legend(gs2a+theme(legend.position = "bottom",
                                 legend.text = element_text(size = 16)))
 
-# Figure 1
+# Figure S7
 
-(figs2 <- plot_grid(row1, legend,
-                  rel_heights = c(1,.1),
-                  ncol = 1))
-
-# Save
-
-ggsave("Fig.S2.pdf", figs2,
-       height = 10, width = 16,
-       path = ResultPath )
-
-# Figure S3: threats across taxon ----------------------------------------------  
-
-# One threat -------------------------------------------------------------------
-
-(gs3a <- mt1 %>%
-   gather_draws(`b_.*`, regex = TRUE) %>% 
-   median_qi(.width = .95) %>%
-   mutate(.variable = gsub("b_threats", "", .variable), 
-          .variable = gsub("InvasivesppDgenes", "Invasive", .variable),
-          .variable = gsub("HabitatdegradationDchange", "Habitat degradation", .variable),
-          .variable = gsub("Habitatloss", "Habitat loss", .variable),
-          .variable = gsub("Climatechange", "Climate change", .variable),
-          Taxon = gsub(".*Taxon", "", .variable),
-          Taxon =gsub(":", "", Taxon),
-          .variable = gsub(":Taxon.*", "", .variable),
-          number = str_count(.variable,"[A-Z]")) %>%
-   filter(number==1, 
-          Taxon!="Reptiles"|.variable!="Pollution",
-          Taxon!="Reptiles"|.variable!="Climate change",
-          Taxon!="Reptiles"|.variable!="Disease",
-          Taxon!="Amphibians"|.variable!="Pollution",
-          Taxon!="Amphibians"|.variable!="Climate change",
-          Taxon!="Amphibians"|.variable!="Disease",
-          Taxon!="Amphibians"|.variable!="Exploitation") %>% 
-   ggplot(aes(y = reorder(.variable, -.value),
-              x = .value, colour=Taxon, group=Taxon)) +
-   geom_point(size=4,position =position_dodge(.7)) +
-   geom_errorbar( aes(xmin=.lower, xmax=.upper), 
-                  width=0, alpha=0.9, size=1.3,
-                  position=position_dodge(0.7))+
-   geom_vline(xintercept = 0, lty = 2, size = 0.5) +
-   labs(x = "",
-        y = expression(paste("Population trend (", mu, ")",sep = ""))) +
-   scale_y_discrete(labels = scales::wrap_format(25)) +
-   scale_colour_manual("", values = taxon_pal)+
-   scale_x_continuous(labels = scaleFUN, limits = c(-.2,.2)) +
-   theme(plot.margin = unit(c(0, 0, 0.5, 0), "cm")))
-
-# Two threats ------------------------------------------------------------------
-
-(gs3b <- mt1 %>%
-   gather_draws(`b_.*`, regex = TRUE) %>% 
-   median_qi(.width = .95) %>%
-   mutate(.variable = gsub("b_threats", "", .variable), 
-          .variable = gsub("InvasivesppDgenes", "Invasive", .variable),
-          .variable = gsub("HabitatdegradationDchange", "Habitat degradation", .variable),
-          .variable = gsub("Habitatloss", "Habitat loss", .variable),
-          .variable = gsub("Climatechange", "Climate change", .variable),
-          Taxon = gsub(".*Taxon", "", .variable),
-          Taxon =gsub(":", "", Taxon),
-          .variable = gsub(":Taxon.*", "", .variable),
-          number = str_count(.variable,"[A-Z]"))%>%
-   filter(number==2, 
-          Taxon!="Reptiles"|.variable!="Habitat loss:Invasive",
-          Taxon!="Reptiles"|.variable!="Exploitation:Disease",
-          Taxon!="Reptiles"|.variable!="Climate change:Disease",
-          Taxon!="Reptiles"|.variable!="Pollution:Invasive",
-          Taxon!="Reptiles"|.variable!="Invasive:Disease",
-          Taxon!="Reptiles"|.variable!="Habitat loss:Disease",
-          Taxon!="Reptiles"|.variable!="Pollution:Disease",
-          Taxon!="Amphibians"|.variable!="Exploitation:Disease",
-          Taxon!="Amphibians"|.variable!="Climate change:Disease",
-          Taxon!="Amphibians"|.variable!="Pollution:Invasive",
-          Taxon!="Amphibians"|.variable!="Habitat loss:Exploitation",
-          Taxon!="Amphibians"|.variable!="Pollution:Disease",
-          Taxon!="Amphibians"|.variable!="Invasive:Climate change",
-          Taxon!="Amphibians"|.variable!="Invasive:Exploitation",
-          Taxon!="Amphibians"|.variable!="Climate change:Exploitation",
-          Taxon!="Amphibians"|.variable!="Pollution:Exploitation",
-          Taxon!="Fish"|.variable!="Exploitation:Disease",
-          Taxon!="Fish"|.variable!="Habitat loss:Invasive",
-          Taxon!="Fish"|.variable!="Pollution:Invasive",
-          Taxon!="Fish"|.variable!="Pollution:Disease",
-          Taxon!="Fish"|.variable!="Climate change:Disease",
-          Taxon!="Fish"|.variable!="Invasive:Disease",
-          Taxon!="Fish"|.variable!="Habitat loss:Disease",
-          Taxon!="Fish"|.variable!="Invasive:Climate change",
-          Taxon!="Birds"|.variable!="Pollution:Invasive",
-          Taxon!="Birds"|.variable!="Invasive:Disease",
-          Taxon!="Mammals"|.variable!="Pollution:Disease",
-          Taxon!="Mammals"|.variable!="Invasive:Exploitation",
-          Taxon!="Mammals"|.variable!="Climate change:Disease",
-          Taxon!="Mammals"|.variable!="Invasive:Climate change") %>% 
-   ggplot(aes(y = reorder(.variable, -.value),
-              x = .value, colour=Taxon, group=Taxon)) +
-   geom_point(size=4,position =position_dodge(.7)) +
-   geom_errorbar( aes(xmin=.lower, xmax=.upper), 
-                  width=0, alpha=0.9, size=1.3,
-                  position=position_dodge(0.7))+
-   geom_vline(xintercept = 0, lty = 2, size = 0.5) +
-   labs(y = "",
-        x = expression(paste("Population trend (", mu, ")",sep = ""))) +
-   scale_y_discrete(labels = scales::wrap_format(25)) +
-   scale_colour_manual("", values = taxon_pal)+
-   scale_x_continuous(labels = scaleFUN, limits = c(-.2,.2)) +
-   theme(plot.margin = unit(c(0, 0, 0.5, 0), "cm")))
-
-# Three threats ----------------------------------------------------------------
-
-(gs3c <- mt1 %>%
-   gather_draws(`b_.*`, regex = TRUE) %>% 
-   median_qi(.width = .95) %>%
-   mutate(.variable = gsub("b_threats", "", .variable), 
-          .variable = gsub("InvasivesppDgenes", "Invasive", .variable),
-          .variable = gsub("HabitatdegradationDchange", "Habitat degradation", .variable),
-          .variable = gsub("Habitatloss", "Habitat loss", .variable),
-          .variable = gsub("Climatechange", "Climate change", .variable),
-          Taxon = gsub(".*Taxon", "", .variable),
-          Taxon =gsub(":", "", Taxon),
-          .variable = gsub(":Taxon.*", "", .variable),
-          number = str_count(.variable,"[A-Z]"))%>%
-   filter(number==3, 
-          Taxon!="Reptiles"|.variable!="Invasive:Climate change:Disease",
-          Taxon!="Mammals"|.variable!="Invasive:Climate change:Disease",
-          Taxon!="Fish"|.variable!="Invasive:Climate change:Disease",
-          Taxon!="Birds"|.variable!="Invasive:Climate change:Disease",
-          Taxon!="Reptiles"|.variable!="Pollution:Climate change:Disease",
-          Taxon!="Mammals"|.variable!="Pollution:Climate change:Disease",
-          Taxon!="Fish"|.variable!="Pollution:Climate change:Disease",
-          Taxon!="Reptiles"|.variable!="Pollution:Invasive:Exploitation",
-          Taxon!="Mammals"|.variable!="Pollution:Invasive:Exploitation",
-          Taxon!="Fish"|.variable!="Pollution:Invasive:Exploitation",
-          Taxon!="Amphibians"|.variable!="Pollution:Invasive:Exploitation",
-          Taxon!="Amphibians"|.variable!="Habitat loss:Climate change:Exploitation",
-          Taxon!="Reptiles"|.variable!="Habitat loss:Invasive:Disease",
-          Taxon!="Mammals"|.variable!="Habitat loss:Invasive:Disease",
-          Taxon!="Fish"|.variable!="Habitat loss:Invasive:Disease",
-          Taxon!="Reptiles"|.variable!="Pollution:Habitat loss:Climate change",
-          Taxon!="Amphibians"|.variable!="Pollution:Habitat loss:Climate change",
-          Taxon!="Fish"|.variable!="Pollution:Habitat loss:Climate change",
-          Taxon!="Reptiles"|.variable!="Invasive:Exploitation:Disease",
-          Taxon!="Mammals"|.variable!="Invasive:Exploitation:Disease",
-          Taxon!="Fish"|.variable!="Invasive:Exploitation:Disease",
-          Taxon!="Reptiles"|.variable!="Habitat loss:Climate change:Disease",
-          Taxon!="Mammals"|.variable!="Habitat loss:Climate change:Disease",
-          Taxon!="Fish"|.variable!="Habitat loss:Climate change:Disease",
-          Taxon!="Reptiles"|.variable!="Pollution:Habitat loss:Disease",
-          Taxon!="Fish"|.variable!="Pollution:Habitat loss:Disease",
-          Taxon!="Amphibians"|.variable!="Pollution:Habitat loss:Disease",
-          Taxon!="Reptiles"|.variable!="Pollution:Climate change:Exploitation",
-          Taxon!="Fish"|.variable!="Pollution:Climate change:Exploitation",
-          Taxon!="Amphibians"|.variable!="Pollution:Climate change:Exploitation",
-          Taxon!="Reptiles"|.variable!="Invasive:Climate change:Exploitation",
-          Taxon!="Mammals"|.variable!="Invasive:Climate change:Exploitation",
-          Taxon!="Fish"|.variable!="Invasive:Climate change:Exploitation",
-          Taxon!="Amphibians"|.variable!="Invasive:Climate change:Exploitation",
-          Taxon!="Reptiles"|.variable!="Pollution:Habitat loss:Invasive",
-          Taxon!="Fish"|.variable!="Pollution:Habitat loss:Invasive",
-          Taxon!="Amphibians"|.variable!="Pollution:Habitat loss:Invasive",
-          Taxon!="Reptiles"|.variable!="Habitat loss:Invasive:Climate change",
-          Taxon!="Amphibians"|.variable!="Habitat loss:Invasive:Climate change",
-          Taxon!="Amphibians"|.variable!="Invasive:Climate change:Exploitation",
-          Taxon!="Reptiles"|.variable!="Pollution:Invasive:Climate change",
-          Taxon!="Mammals"|.variable!="Pollution:Invasive:Climate change",
-          Taxon!="Fish"|.variable!="Pollution:Invasive:Climate change",
-          Taxon!="Amphibians"|.variable!="Pollution:Invasive:Climate change",
-          Taxon!="Fish"|.variable!="Pollution:Exploitation:Disease",
-          Taxon!="Amphibians"|.variable!="Pollution:Exploitation:Disease",
-          Taxon!="Amphibians"|.variable!="Habitat loss:Invasive:Exploitation",
-          Taxon!="Reptiles"|.variable!="Habitat loss:Exploitation:Disease",
-          Taxon!="Fish"|.variable!="Habitat loss:Exploitation:Disease",
-          Taxon!="Amphibians"|.variable!="Habitat loss:Exploitation:Disease",
-          Taxon!="Birds"|.variable!="Pollution:Climate change:Exploitation") %>% 
-   ggplot(aes(y = reorder(.variable, -.value),
-              x = .value, colour=Taxon, group=Taxon)) +
-   geom_point(size=4,position =position_dodge(.7)) +
-   geom_errorbar( aes(xmin=.lower, xmax=.upper), 
-                  width=0, alpha=0.9, size=1.3,
-                  position=position_dodge(0.7))+
-   geom_vline(xintercept = 0, lty = 2, size = 0.5) +
-   labs(y = "",
-        x = expression(paste("Population trend (", mu, ")",sep = ""))) +
-   scale_y_discrete(labels = scales::wrap_format(25)) +
-   scale_colour_manual("", values = taxon_pal)+
-   scale_x_continuous(labels = scaleFUN, limits = c(-.2,.2)) +
-   theme(plot.margin = unit(c(0, 0, 0.5, 0), "cm")))
-
-# We combine them --------------------------------------------------------------
-
-# First row
-
-row1 <- plot_grid(gs3a+theme(legend.position = "none"),
-                  gs3b+theme(legend.position = "none"),
-                  gs3c+theme(legend.position = "none"),
-                  nrow = 1,labels = "auto")
-
-# get the legend
-
-legend <- get_legend(gs3a+theme(legend.position = "bottom",
-                                legend.text = element_text(size = 16)))
-
-# Figure S2
-
-(figs3 <- plot_grid(row1, legend,
+(figs7 <- plot_grid(row1, legend,
                    rel_heights = c(1,.1),
                    ncol = 1))
 
 # Save
 
-ggsave("Fig.S3.pdf", figs3,
+ggsave("Figure S7.pdf", figs7,
        height = 10, width = 16,
        path = ResultPath )
 
-
-
-# Figure S4: Network of interactions ###########################################
+# Figure S10: Network of interactions ##########################################
 
 load(paste0(ResultPath,"/PopMultEffects.RData"))
 
@@ -504,7 +511,7 @@ data_ad <- data_int2 %>%
                                  "Non-additive", "Additive")) %>% 
   group_by(interaction.type) %>% 
   summarise(n=n()) %>% 
-  complete(interaction.type) %>%
+  tidyr::complete(interaction.type) %>%
   mutate(n=replace_na(n, 0),
          freq = (n / sum(n))*100) 
 
@@ -515,12 +522,6 @@ data_ad <- data_int2 %>%
 data_freq<- data_freq %>% mutate(freq=freq/100)
 
 data_freq_taxon<- data_freq_taxon %>% mutate(freq=freq/100)
-
-# Save them 
-
-setwd(ResultPath)
-write.csv(data_freq, "Table S5.csv")
-write.csv(data_freq_taxon, "Table S6.csv")
 
 # Panel a: network of interactions ---------------------------------------------
 
@@ -594,6 +595,7 @@ palette <- c("#B32315", "#1E63B3")
 l <- layout_with_kk(Net)
 
 # Interaction types 
+dev.off()
 
 par(mar = c(0, 0, 0, 0), mgp = c(0, 0, 0), bg=NA)
 plot(Net, edge.color=palette[(E(Net)$interaction.type=="Antagonistic")+1],
@@ -602,7 +604,7 @@ plot(Net, edge.color=palette[(E(Net)$interaction.type=="Antagonistic")+1],
 
 # Keep the plot
 
-gs4a <- recordPlot()
+gs3a <- recordPlot()
 
 # Panel d: Three way interactions ----------------------------------------------
 
@@ -642,6 +644,7 @@ V(Net2)$size <- deg*2
 V(Net2)$label.color <- "black"
 
 # Set edge width based on weight:
+
 E(Net2)$width <- E(Net2)$freq/2
 
 # Delete frequency 0
@@ -654,24 +657,25 @@ l2 <- layout_with_kk(Net2)
 
 # Plot
 
+dev.off()
 par(mar = c(0, 0, 0, 0), mgp = c(0, 0, 0), bg=NA)
 plot(Net2, edge.color=palette[(E(Net2)$interaction.type=="Antagonistic")+1],
      vertex.label.family="Helvetica",
      edge.curved=curve_multiple(Net2), layout=l2)
 
-gs4b <- recordPlot()
+gs3b <- recordPlot()
 
 # Combine ----------------------------------------------------------------------
 
 # Second row 
 
-(figS4 <- plot_grid(gs4a, 
-                    gs4b,nrow = 1, 
+(figS10 <- plot_grid(gs3a, 
+                    gs3b,nrow = 1, 
                     labels = "auto"))
 
 # Save it
 
-ggsave("Figure S4.pdf", figS4, 
+ggsave("Figure S10.pdf", figS10, 
        width = 10, height = 8,
        path = ResultPath)
 
@@ -683,7 +687,9 @@ ggsave("Figure S4.pdf", figS4,
 two_pairs<- gather_set_data(pairs, 1:2)
 
 two_pairs <- two_pairs %>% 
-  mutate(x = fct_inorder(x)) %>% 
+  mutate(x=as.factor(x),
+         x = fct_inorder(x),
+         freq=freq/100) %>% 
   #filter(interaction.type!="Additive") %>% 
   distinct(id, .keep_all=T) %>% 
   filter(is.na(Tertiary))%>% arrange(interaction.type)
@@ -692,13 +698,49 @@ two_pairs <- two_pairs %>%
 
 setwd(ResultPath)
 
-write.csv(two_pairs, "TableS7.csv")
+write.csv2(two_pairs, "TableS7.csv")
+
+# Now we plot it
+
+# (g4c<- two_pairs %>% 
+#     filter(interaction.type!="Additive") %>% 
+#     ggplot(aes(axis1 = Primary, axis2 = Secondary, 
+#            y = freq)) +
+#   geom_alluvium(aes(fill = interaction.type),width = .55,
+#                 curve_type = "cubic", alpha=0.8) +
+#   geom_stratum(width = .55) +
+#   geom_text(stat = "stratum",
+#             aes(label = after_stat(stratum)), size=5) +
+#   scale_fill_manual(name = "",
+#                     values = c(Antagonistic="#1E63B3",
+#                                Additive="#694364",
+#                                Synergy="#B32315"))+
+#     theme_void()+
+#     guides(fill = "none")+
+#     theme(plot.margin = unit(c(0,0,0,0), "cm"))) 
+
+# (g3d <- ggplot(two_pairs, aes(x, id = id, split = y, value = freq)) +
+#     geom_parallel_sets(aes(fill = interaction.type), 
+#                        alpha = 0.8, axis.width = 0.6) +
+#     geom_parallel_sets_axes(axis.width = 0.6, 
+#                             fill="white", colour="black") +
+#     geom_parallel_sets_labels(angle = 0, colour="black")+
+#     scale_fill_manual(name = "",
+#                       values = c(Antagonistic="#1E63B3",
+#                                  Additive="#694364",
+#                                  Synergy="#B32315"))+
+#     theme_void() + 
+#     theme(plot.margin = margin(-0.5, -3, -0.5,-3, "cm"))+
+#     guides(fill = "none"))
+
 
 # Re-structure the data set for the plot 
 
 three_pairs<- gather_set_data(pairs, c(7,3))
 three_pairs <- three_pairs %>% 
-  mutate(x = fct_inorder(x)) %>%
+  mutate(x=as.factor(x),
+         x = fct_inorder(x),
+         freq=freq/100)  %>%
   drop_na() %>% 
   distinct(id, .keep_all=T) %>% 
   arrange(interaction.type)
@@ -707,54 +749,260 @@ three_pairs <- three_pairs %>%
 
 setwd(ResultPath)
 
-write.csv(three_pairs, "TableS8.csv")
+write.csv2(three_pairs, "TableS8.csv")
 
-# Across systems 
+#Now we plot it
 
-pairs <- data_prop %>% 
-  drop_na(.variable) %>%
-  group_by(System, .variable, interaction.type) %>% 
+# (g4d<- three_pairs %>% 
+#     filter(interaction.type!="Additive") %>% 
+#     mutate(interaction.type=factor(interaction.type, levels=c("Antagonistic", "Synergy"))) %>% 
+#     ggplot(aes(axis1 = Primary_Secondary, axis2 = Tertiary, 
+#                   y = freq)) +
+#     geom_alluvium(aes(fill = interaction.type),
+#                   width = 0.65,
+#                   curve_type = "cubic", alpha=0.8) +
+#     geom_stratum(width = 0.65) +
+#     geom_text(stat = "stratum",
+#               aes(label = after_stat(stratum)),size=5) +
+#     scale_fill_manual(name = "",
+#                       values = c(Antagonistic="#1E63B3",
+#                                  Synergy="#B32315"))+
+#     theme_void()+
+#     theme(legend.position = "none",
+#           plot.margin = unit(c(0,0,0,0), "cm"))) 
+
+
+# Figure S12: Sensitivity interactions #########################################
+
+load(paste0(ResultPath,"/PopMeanEffects.RData"))
+
+# Color palette for taxons
+
+taxon_pal <- wesanderson::wes_palette("Cavalcanti1", n = 5)
+
+# System palette
+
+system_pal <- c("#A1D6E2","#336B87", "#CC954E")
+
+# First classify non-additive 
+
+data_ad <- data_int2 %>% 
+  mutate(interaction.type=ifelse(effect!="Additive", 
+                                 "Non-additive", "Additive")) %>% 
+  group_by(interaction.type) %>% 
   summarise(n=n()) %>% 
-  tidyr::complete(System, .variable, interaction.type) %>%
+  tidyr::complete(interaction.type) %>%
   mutate(n=replace_na(n, 0),
          freq = (n / sum(n))*100)
 
-# Now we separate the threats 
 
-pairs <- pairs %>% separate(.variable, c("Primary", "Secondary", "Tertiary"), ":")
+# Change scale to make it easier for the plot
 
-# Create a variable with the first and second
+data_freq<- data_freq %>% mutate(freq=freq/100)
 
-pairs <- pairs %>% mutate(Primary_Secondary=paste0(Primary, ":", Secondary))
+data_freq_taxon<- data_freq_taxon %>% mutate(freq=freq/100)
 
-# Two stressors 
-# Re-structure the data set for the plot 
+# Panel a: System --------------------------------------------------------------
 
-two_pairs<- gather_set_data(pairs, 1:2)
+data <- data_freq %>% mutate(System=as.factor(System),
+                             freq=freq*100, 
+                             interaction.type=fct_relevel(interaction.type,
+                                                          c("Synergy", 
+                                                            "Antagonistic", 
+                                                            "Additive"))) 
 
-two_pairs <- two_pairs %>% 
-  mutate(x = fct_inorder(x)) %>% 
-  distinct(id, .keep_all=T) %>% 
-  filter(is.na(Tertiary))
+# Set a number of 'empty bar' to add at the end of each group
+empty_bar <- 2
+nObsType <- nlevels(as.factor(data$interaction.type))
+to_add <- data.frame( matrix(NA, empty_bar*nlevels(data$System)*nObsType, ncol(data)) )
+colnames(to_add) <- colnames(data)
+to_add$System <- rep(levels(data$System), each=empty_bar*nObsType )
+data <- rbind(data, to_add)
+data <- data %>% arrange(System, variable)
+data$id <- rep( seq(1, nrow(data)/nObsType) , each=nObsType)
 
-# Save it as a supplementary table 
+# Get the name and the y position of each label
+
+label_data <- data %>% group_by(id, variable) %>% summarize(tot=sum(freq))
+number_of_bar <- nrow(label_data)
+angle <- 90 - 360 * (label_data$id-0.5) /number_of_bar     # I substract 0.5 because the letter must have the angle of the center of the bars. Not extreme right(1) or extreme left (0)
+label_data$hjust <- ifelse( angle < -90, 1, 0)
+label_data$angle <- ifelse(angle < -90, angle+180, angle)
+
+# prepare a data frame for base lines
+base_data <- data %>% 
+  group_by(System) %>% 
+  summarize(start=min(id), end=max(id) - empty_bar) %>% 
+  rowwise() %>% 
+  mutate(title=mean(c(start, end)))
+
+# prepare a data frame for grid (scales)
+grid_data <- base_data
+grid_data$end <- grid_data$end[ c( nrow(grid_data), 1:nrow(grid_data)-1)] + 1
+grid_data$start <- grid_data$start 
+grid_data <- grid_data[-1,]
+
+# Make the plot
+
+(gs12a <- ggplot(data) +
+    # Add the stacked bar
+    geom_bar(aes(x=as.factor(id), y=freq, fill=interaction.type), 
+             stat="identity", alpha=0.8) +
+    # Add a personalised grid
+    geom_segment(data=grid_data, aes(x = end-0.5, y = 100, xend = start-0.5, yend = 100),
+                 colour = "grey", alpha=1, size=0.3 , inherit.aes = FALSE ) +
+    geom_segment(data=grid_data, aes(x = end-0.5, y = 80, xend = start-0.5, yend = 80),
+                 colour = "grey", alpha=1, size=0.3 , inherit.aes = FALSE ) +
+    geom_segment(data=grid_data, aes(x = end-0.5, y = 60, xend = start-0.5, yend = 60),
+                 colour = "grey", alpha=1, size=0.3 , inherit.aes = FALSE ) +
+    geom_segment(data=grid_data, aes(x = end-0.5, y = 40, xend = start-0.5, yend = 40),
+                 colour = "grey", alpha=1, size=0.3 , inherit.aes = FALSE ) +
+    geom_segment(data=grid_data, aes(x = end-0.5, y = 20, xend = start-0.5, yend = 20),
+                 colour = "grey", alpha=1, size=0.3 , inherit.aes = FALSE ) +
+    # Colour of the fill
+    scale_fill_manual(name = "",
+                      values = c("#B32315",
+                                          "#1E63B3",
+                                          "#694364"))+
+                                            # Add text showing the freq of each 100/75/50/25 lines
+    annotate("text", x = rep(max(data$id),5), y = c(20,40, 60, 80,100), 
+             label = c("20", "40", "60", "80","100"), 
+             color="grey", size=5, angle=0, fontface="bold", hjust=1.5) +
+    ylim(-100,220) +
+    theme_minimal() +
+    theme(
+      legend.position = "none",
+      axis.text = element_blank(),
+      axis.title = element_blank(),
+      panel.grid = element_blank(),
+      plot.margin = unit(rep(-1,4), "cm") 
+    ) +
+    coord_polar() +
+    # Add labels on top of each bar
+    geom_text(data=label_data, aes(x=id, y=tot+5, label=variable, hjust=hjust), 
+              color="black", fontface="bold",alpha=0.6, size=5, 
+              angle= label_data$angle, inherit.aes = FALSE ) +
+    # Add base line information
+    geom_segment(data=base_data, aes(x = start, y = -5, xend = end, yend = -5), 
+                 colour = system_pal, alpha=0.8, size=2, inherit.aes = FALSE )  +
+    geom_text(data=base_data, aes(x = title, y = -22, label=System), 
+              hjust=c(1,0.5,0), colour = system_pal, alpha=0.8, size=4, 
+              fontface="bold", inherit.aes = FALSE))
+
+# Panel b: Taxa ----------------------------------------------------------------
+
+data <- data_freq_taxon %>% mutate(Taxon=as.factor(Taxon),
+                                   freq=freq*100,
+                                   interaction.type=fct_relevel(interaction.type,
+                                                                c("Synergy", 
+                                                                  "Antagonistic", 
+                                                                  "Additive"))) 
+
+# Set a number of 'empty bar' to add at the end of each group
+empty_bar <- 2
+nObsType <- nlevels(as.factor(data$interaction.type))
+to_add <- data.frame( matrix(NA, empty_bar*nlevels(data$Taxon)*nObsType, ncol(data)) )
+colnames(to_add) <- colnames(data)
+to_add$Taxon <- rep(levels(data$Taxon), each=empty_bar*nObsType )
+data <- rbind(data, to_add)
+data <- data %>% arrange(Taxon, variable)
+data$id <- rep( seq(1, nrow(data)/nObsType) , each=nObsType)
+
+# Get the name and the y position of each label
+
+label_data <- data %>% group_by(id, variable) %>% summarize(tot=sum(freq))
+number_of_bar <- nrow(label_data)
+angle <- 90 - 360 * (label_data$id-0.5) /number_of_bar     # I substract 0.5 because the letter must have the angle of the center of the bars. Not extreme right(1) or extreme left (0)
+label_data$hjust <- ifelse( angle < -90, 1, 0)
+label_data$angle <- ifelse(angle < -90, angle+180, angle)
+
+# prepare a data frame for base lines
+base_data <- data %>% 
+  group_by(Taxon) %>% 
+  summarize(start=min(id), end=max(id) - empty_bar) %>% 
+  rowwise() %>% 
+  mutate(title=mean(c(start, end)))
+
+# prepare a data frame for grid (scales)
+grid_data <- base_data
+grid_data$end <- grid_data$end[ c( nrow(grid_data), 1:nrow(grid_data)-1)] + 1
+grid_data$start <- grid_data$start 
+grid_data <- grid_data[-1,]
+
+# Make the plot
+
+(gs12b <- ggplot(data) +
+    # Add the stacked bar
+    geom_bar(aes(x=as.factor(id), y=freq, fill=interaction.type), 
+             stat="identity", alpha=0.8) +
+    # Add a personalised grid
+    geom_segment(data=grid_data, aes(x = end-0.5, y = 100, xend = start-0.5, yend = 100),
+                 colour = "grey", alpha=1, size=0.3 , inherit.aes = FALSE ) +
+    geom_segment(data=grid_data, aes(x = end-0.5, y = 80, xend = start-0.5, yend = 80),
+                 colour = "grey", alpha=1, size=0.3 , inherit.aes = FALSE ) +
+    geom_segment(data=grid_data, aes(x = end-0.5, y = 60, xend = start-0.5, yend = 60),
+                 colour = "grey", alpha=1, size=0.3 , inherit.aes = FALSE ) +
+    geom_segment(data=grid_data, aes(x = end-0.5, y = 40, xend = start-0.5, yend = 40),
+                 colour = "grey", alpha=1, size=0.3 , inherit.aes = FALSE ) +
+    geom_segment(data=grid_data, aes(x = end-0.5, y = 20, xend = start-0.5, yend = 20),
+                 colour = "grey", alpha=1, size=0.3 , inherit.aes = FALSE ) +
+    # Colour of the fill
+    scale_fill_manual(name = "",values = c("#B32315",
+                                                    "#1E63B3",
+                                                    "#694364"))+
+                                                      # Add text showing the freq of each 100/75/50/25 lines
+    annotate("text", x = rep(max(data$id),5), y = c(20,40, 60, 80,100), 
+             label = c("20", "40", "60", "80","100"), 
+             color="grey", size=5, angle=0, fontface="bold", hjust=1) +
+    ylim(-100,220) +
+    theme_minimal() +
+    theme(
+      legend.position = "none",
+      axis.text = element_blank(),
+      axis.title = element_blank(),
+      panel.grid = element_blank(),
+      plot.margin = unit(rep(-1,4), "cm") 
+    ) +
+    coord_polar() +
+    # Add labels on top of each bar
+    geom_text(data=label_data, aes(x=id, y=tot+5, label=variable, hjust=hjust), 
+              color="black", fontface="bold", alpha=0.6, size=5, 
+              angle= label_data$angle, inherit.aes = FALSE ) +
+    # Add base line information
+    geom_segment(data=base_data, aes(x = start, y = -5, xend = end, yend = -5), 
+                 colour = taxon_pal, alpha=0.8, size=2 , inherit.aes = FALSE )  +
+    geom_text(data=base_data, aes(x = title, y = -22, label=Taxon), 
+              hjust=c(0.9,0.8,0.5,0,0), 
+              colour = taxon_pal, alpha=0.8, size=4, 
+              fontface="bold",inherit.aes = FALSE))
+
+
+# Combine ----------------------------------------------------------------------
+
+#Create first row 
+
+(row1 <- plot_grid(gs12a, gs12b, labels="auto"))
+
+# Get the legend
+
+legend <- get_legend(gs12a+theme(legend.position = "bottom",
+                               legend.text = element_text(size=14)))
+# Plot it 
+
+(figS12<- plot_grid(row1, legend, 
+                       nrow = 2, rel_heights = c(1,0.05)))
+
+
+# Save it
+
+ggsave("Figure S12.pdf", figS12, 
+       width = 10, height = 8,
+       path = ResultPath)
+
+# Tables S9 & S10 --------------------------------------------------------------
+
+# Save them 
 
 setwd(ResultPath)
-
-write.csv(two_pairs, "TableS9.csv")
-
-# Three stressors 
-# Re-structure the data set for the plot 
-
-three_pairs<- gather_set_data(pairs, c(8,3))
-three_pairs <- three_pairs %>% 
-  mutate(x = fct_inorder(x)) %>%
-  drop_na() %>% 
-  distinct(id, .keep_all=T) %>% 
-  arrange(interaction.type)
-
-# Save it as a supplementary table 
-
-setwd(ResultPath)
-
-write.csv(three_pairs, "TableS10.csv")
+write.csv2(data_freq %>% mutate(freq=freq/100), "Table S9.csv")
+write.csv2(data_freq_taxon%>% mutate(freq=freq/100), "Table S10.csv")
