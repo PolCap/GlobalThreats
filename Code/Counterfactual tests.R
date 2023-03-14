@@ -51,12 +51,12 @@ ResultPath <-  paste0(path, "Results")
 
 # Load data 
 
-load(paste0(ResultPath, "/TenResults.RData"))
-load(paste0(DataPath, "/TenYearsData.RData"))
+load(paste0(ResultPath, "/Results.RData"))
+load(paste0(DataPath, "/FiveData.RData"))
 
 # Change invasive species
 
-pops_data10 <- pops_data10 %>% 
+pops_data <- pops_data %>% 
   mutate(threats=gsub("Invasive spp/genes", "Invasive", threats))
 
 # Palette for the threats 
@@ -73,7 +73,7 @@ pop_perd <- fitted(m1, scale = "response")
 
 pop_perd <- pop_perd %>%
   as.data.frame() %>% 
-  bind_cols(pops_data10[c("threats", "ID")]) %>% # Add the threat affecting the population 
+  bind_cols(pops_data[c("threats", "ID")]) %>% # Add the threat affecting the population 
   mutate(lambda=exp(Estimate), # Backtransform to lambda
          number = str_count(threats,"[A-Z]")) # Get the number of threats
 
@@ -94,7 +94,7 @@ mus_mean <- m1 %>%
 
 # Define the  threats
 
-threats <- unique(pops_data10$threats[which(pops_data10$n.threat>=1)]) %>% 
+threats <- unique(pops_data$threats[which(pops_data$n.threat>=1)]) %>% 
   as_tibble() %>% 
   mutate(number=str_count(value,"[A-Z]"))
 
@@ -282,7 +282,7 @@ scenarios_data <-
   pop_perd %>% mutate(scenario="No Management") %>% 
   bind_rows(mu_scenarios) %>% 
   filter(threats!="None") %>% 
-  mutate(prop=((log(lambda)-Estimate)/abs(Estimate))*100,
+ mutate(prop=((log(lambda)-Estimate)/abs(Estimate))*100,
          prop=round(prop,2),
          number_scen= str_count(scenario,"[A-Z]")) %>% 
   group_by(scenario) %>% 
@@ -296,7 +296,7 @@ scenarios_median <- scenarios_data %>%
   group_by(scenario) %>% 
   summarise(mcontrol=median(Estimate),
             mcounter=median(log(lambda))) %>% 
-  mutate(prop=((mcounter-mcontrol)/abs(mcontrol))*100,
+  mutate(prop=((mcounter-(mcontrol))/abs(mcontrol))*100,
          prop=round(prop,2))
 
 # Figure 4: Counterfactual single threats -----------------------------------------------
@@ -325,9 +325,9 @@ scenarios_median <- scenarios_data %>%
                              range_scale = .2,
                              shape=21, alpha=0.5,
                              colour="grey25") +
-   geom_hline(yintercept = 0)+
+   geom_hline(yintercept = 0, size=.5)+
    geom_hline(yintercept = median(pop_perd$Estimate[pop_perd$threats!="None"]), 
-              linetype="dashed",size=.8)+
+              linetype="dashed",size=.5)+
    coord_cartesian(xlim = c(1.2, NA), clip = "off") +
    labs(y=expression(paste("Population trend (", mu,")")),
         x="Counterfactual scenarios")+
@@ -335,32 +335,45 @@ scenarios_median <- scenarios_data %>%
    geom_curve(aes(x = 7, 
                   y = median(pop_perd$Estimate[pop_perd$threats!="None"]),
                   xend = 7.3, 
-                  yend = -0.015),
-              arrow = arrow(length = unit(0.07, "inch")), size = 0.4, 
-              curvature = -0.3, colour="black")+
-   annotate("text", x = 7.3, y = -0.03, 
+                  yend = -0.1),
+              arrow = arrow(length = unit(0.07, "inch")), 
+              size = 0.4, alpha=.1, 
+              curvature = -0.2, colour="black")+
+   annotate("text", x = 7.3, y = -0.12, 
             label = "Median trend of \n non-managed scenarios")+
    geom_curve(aes(x = 7, 
                   y = 0,
                   xend = 7.3, 
-                  yend = 0.01),
-              arrow = arrow(length = unit(0.07, "inch")), size = 0.4, 
-              curvature = 0.3, colour="black")+
-   annotate("text", x = 7.3, y = 0.015, 
+                  yend = 0.1),
+              arrow = arrow(length = unit(0.07, "inch")), 
+              size = 0.4, alpha=.1, 
+              curvature = 0.2, colour="black")+
+   annotate("text", x = 7.3, y = 0.115, 
             label = "Population trend = 0")+
    theme(plot.margin=unit(c(0,2,0,0), "cm")))
 
 # Save it
 
 ggsave("Figure 4.pdf", figure4, path=ResultPath,
-       width = 11, height = 8)
+       width = 11, height = 9)
 
-# Figure S6: Counterfactual plots -----------------------------------------------
+# Compute the differences 
 
+scenarios_median %>% 
+  mutate(number_scen= str_count(scenario,"[A-Z]")) %>% 
+  filter(number_scen==2) %>% 
+  arrange(desc(prop))
+
+# Now all
+
+scenarios_median %>% 
+  arrange(desc(prop))
+
+# Figure S13: Counterfactual plots -----------------------------------------------
 
 # Panel a
 
-(gs6a <- scenarios_data %>% 
+(gs13a <- scenarios_data %>% 
     filter(scenario!="No Management", 
            number_scen==3) %>%
     ggplot(aes(x=reorder(scenario, pos), y=log(lambda), 
@@ -387,7 +400,7 @@ ggsave("Figure 4.pdf", figure4, path=ResultPath,
 
 # Panel b
 
-(gs6b <- scenarios_data %>% 
+(gs13b <- scenarios_data %>% 
     filter(scenario!="No management", 
            number_scen==4) %>%
     ggplot(aes(x=reorder(scenario, pos), y=log(lambda), 
@@ -410,15 +423,17 @@ ggsave("Figure 4.pdf", figure4, path=ResultPath,
                linetype="dashed",size=.8)+
     labs(y=expression(paste("Population trend (", mu,")")),
          x="")+
-    theme(plot.margin=unit(c(0,0,0,-2), "cm")))
+    theme(plot.margin=unit(c(0,.5,0,0), "cm")))
 
 # Combined plot
 
-(figureS6 <- (gs6a+coord_flip())+
-    (gs6b+coord_flip())+
+(figureS13 <- (gs13a+coord_flip())+
+    (gs13b+coord_flip())+
     plot_annotation(tag_levels = c('a')))
 
 # Save the plot
 
-ggsave("Figure S6.pdf",figureS6,
+ggsave("Figure S13.pdf",figureS13,
        path = ResultPath, width = 14, height = 12)
+
+
